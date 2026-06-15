@@ -210,24 +210,30 @@
         </StatusBar>
 
         <!-- Statistics Panel (Right side) -->
-        <DockPanel DockPanel.Dock="Right" Width="350" Visibility="{Binding ShowStatisticsPanel, Converter={StaticResource BoolToVisibility}}">
+        <DockPanel DockPanel.Dock="Right" Width="380" Visibility="{Binding ShowStatisticsPanel, Converter={StaticResource BoolToVisibility}}">
             <GridSplitter Width="5" HorizontalAlignment="Left" Background="#D0D0D0"/>
-            <DockPanel>
-                <TextBlock Text="Protocol Distribution" DockPanel.Dock="Top" FontWeight="Bold"
-                           Background="#E0E0E0" Padding="5"/>
-                <lvc:PieChart Series="{Binding ProtocolPieSeries}"
-                              Height="200"
-                              LegendPosition="Bottom"
-                              TooltipPosition="Top"
-                              DockPanel.Dock="Top"/>
-                <TextBlock Text="Packet Rate (Packets/sec)" FontWeight="Bold"
-                           Background="#E0E0E0" Padding="5" DockPanel.Dock="Top"/>
-                <lvc:CartesianChart Series="{Binding PacketRateSeries}"
-                                     XAxes="{Binding XAxisRate}"
-                                     YAxes="{Binding YAxisRate}"
-                                     Height="200"
-                                     LegendPosition="Top"/>
-            </DockPanel>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <TextBlock Text="Protocol Distribution" FontWeight="Bold"
+                               Background="#E0E0E0" Padding="5"/>
+                    <lvc:PieChart Series="{Binding ProtocolPieSeries}"
+                                  Height="250"
+                                  MinHeight="200"
+                                  LegendPosition="Bottom"
+                                  TooltipPosition="Top"
+                                  InitialRotation="-90"/>
+
+                    <TextBlock Text="Packet Rate (Packets/sec)" FontWeight="Bold"
+                               Background="#E0E0E0" Padding="5"/>
+                    <lvc:CartesianChart Series="{Binding PacketRateSeries}"
+                                         XAxes="{Binding XAxisRate}"
+                                         YAxes="{Binding YAxisRate}"
+                                         Height="220"
+                                         MinHeight="180"
+                                         LegendPosition="Top"
+                                         Margin="0,0,0,5"/>
+                </StackPanel>
+            </ScrollViewer>
         </DockPanel>
 
         <!-- TCP Streams Panel -->

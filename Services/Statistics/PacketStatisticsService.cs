@@ -35,6 +35,7 @@ public class RateDataPoint
     public double PacketsPerSecond { get; set; }
     public double BytesPerSecond { get; set; }
     public string TimeDisplay => Time.ToString("HH:mm:ss");
+    public double Index { get; set; }
 }
 
 public class PacketStatisticsService : IPacketStatisticsService
@@ -44,10 +45,10 @@ public class PacketStatisticsService : IPacketStatisticsService
     private readonly object _lock = new();
     private int _totalPackets;
     private long _totalBytes;
+    private int _rateIndex;
 
     private int _currentSecondPackets;
     private long _currentSecondBytes;
-    private DateTime _currentSecondStart;
 
     private System.Timers.Timer? _rateTimer;
     private bool _isSampling;
@@ -75,11 +76,6 @@ public class PacketStatisticsService : IPacketStatisticsService
 
     public event Action? StatisticsUpdated;
 
-    public PacketStatisticsService()
-    {
-        _currentSecondStart = DateTime.Now;
-    }
-
     public void AddPacket(PacketInfo packet)
     {
         lock (_lock)
@@ -100,23 +96,28 @@ public class PacketStatisticsService : IPacketStatisticsService
             _currentSecondBytes += packet.Length;
         }
 
-        UpdateProtocolStats();
+        UpdateProtocolStatsUI();
+        RaiseStatisticsUpdated();
     }
 
-    private void UpdateProtocolStats()
+    private void UpdateProtocolStatsUI()
     {
-        lock (_lock)
+        try
         {
-            var stats = _protocolCounts.Select(kvp => new ProtocolStat
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
             {
-                Protocol = kvp.Key,
-                Count = kvp.Value,
-                Bytes = _protocolBytes[kvp.Key],
-                Percentage = _totalPackets > 0 ? (double)kvp.Value / _totalPackets * 100 : 0
-            }).OrderByDescending(s => s.Count).ToList();
+                List<ProtocolStat> stats;
+                lock (_lock)
+                {
+                    stats = _protocolCounts.Select(kvp => new ProtocolStat
+                    {
+                        Protocol = kvp.Key,
+                        Count = kvp.Value,
+                        Bytes = _protocolBytes[kvp.Key],
+                        Percentage = _totalPackets > 0 ? (double)kvp.Value / _totalPackets * 100 : 0
+                    }).OrderByDescending(s => s.Count).ToList();
+                }
 
-            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
-            {
                 ProtocolStats.Clear();
                 foreach (var stat in stats)
                 {
@@ -124,8 +125,9 @@ public class PacketStatisticsService : IPacketStatisticsService
                 }
             });
         }
-
-        StatisticsUpdated?.Invoke();
+        catch
+        {
+        }
     }
 
     public void Reset()
@@ -138,17 +140,23 @@ public class PacketStatisticsService : IPacketStatisticsService
             _protocolBytes.Clear();
             _currentSecondPackets = 0;
             _currentSecondBytes = 0;
-            _currentSecondStart = DateTime.Now;
+            _rateIndex = 0;
         }
 
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        try
         {
-            ProtocolStats.Clear();
-            PacketRateHistory.Clear();
-        });
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                ProtocolStats.Clear();
+                PacketRateHistory.Clear();
+            });
+        }
+        catch
+        {
+        }
 
         CurrentPacketsPerSecond = 0;
-        StatisticsUpdated?.Invoke();
+        RaiseStatisticsUpdated();
     }
 
     public void StartRateSampling()
@@ -156,20 +164,24 @@ public class PacketStatisticsService : IPacketStatisticsService
         if (_isSampling) return;
 
         _isSampling = true;
-        _currentSecondStart = DateTime.Now;
         _currentSecondPackets = 0;
         _currentSecondBytes = 0;
 
         _rateTimer = new System.Timers.Timer(1000);
         _rateTimer.Elapsed += (s, e) => SampleRate();
+        _rateTimer.AutoReset = true;
         _rateTimer.Start();
     }
 
     public void StopRateSampling()
     {
         _isSampling = false;
-        _rateTimer?.Stop();
-        _rateTimer?.Dispose();
+        try
+        {
+            _rateTimer?.Stop();
+            _rateTimer?.Dispose();
+        }
+        catch { }
         _rateTimer = null;
     }
 
@@ -186,23 +198,42 @@ public class PacketStatisticsService : IPacketStatisticsService
 
         CurrentPacketsPerSecond = pps;
 
-        var dataPoint = new RateDataPoint
+        try
         {
-            Time = DateTime.Now,
-            PacketsPerSecond = pps,
-            BytesPerSecond = bps
-        };
-
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
-        {
-            PacketRateHistory.Add(dataPoint);
-
-            if (PacketRateHistory.Count > 60)
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
             {
-                PacketRateHistory.RemoveAt(0);
-            }
-        });
+                _rateIndex++;
+                var dataPoint = new RateDataPoint
+                {
+                    Time = DateTime.Now,
+                    PacketsPerSecond = pps,
+                    BytesPerSecond = bps,
+                    Index = _rateIndex
+                };
 
-        StatisticsUpdated?.Invoke();
+                PacketRateHistory.Add(dataPoint);
+
+                while (PacketRateHistory.Count > 60)
+                {
+                    PacketRateHistory.RemoveAt(0);
+                }
+            });
+        }
+        catch
+        {
+        }
+
+        RaiseStatisticsUpdated();
+    }
+
+    private void RaiseStatisticsUpdated()
+    {
+        try
+        {
+            StatisticsUpdated?.Invoke();
+        }
+        catch
+        {
+        }
     }
 }

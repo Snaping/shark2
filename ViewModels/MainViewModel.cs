@@ -81,10 +81,10 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<ArpSpoofAlert> ArpAlerts => _arpDetector.Alerts;
 
     [ObservableProperty]
-    private ISeries[] _protocolPieSeries = [];
+    private ObservableCollection<ISeries> _protocolPieSeries = [];
 
     [ObservableProperty]
-    private ISeries[] _packetRateSeries = [];
+    private ObservableCollection<ISeries> _packetRateSeries = [];
 
     [ObservableProperty]
     private Axis[] _xAxisRate = [];
@@ -140,14 +140,30 @@ public partial class MainViewModel : ObservableObject
         InitializeCharts();
     }
 
+    private readonly ObservableCollection<double> _rateValues = [];
+    private readonly SKColor[] _chartColors =
+    [
+        SKColors.SteelBlue,
+        SKColors.MediumSeaGreen,
+        SKColors.Orange,
+        SKColors.MediumPurple,
+        SKColors.IndianRed,
+        SKColors.DarkCyan,
+        SKColors.HotPink,
+        SKColors.Goldenrod,
+        SKColors.Teal,
+        SKColors.Tomato
+    ];
+
     private void InitializeCharts()
     {
         XAxisRate =
         [
             new Axis
             {
-                Labeler = value => TimeSpan.FromSeconds(value).ToString(@"mm\:ss"),
-                LabelsRotation = 0
+                Labeler = value => value.ToString("F0"),
+                LabelsRotation = 0,
+                SeparatorsPaint = new SolidColorPaint(SKColors.LightGray, 1)
             }
         ];
 
@@ -156,82 +172,98 @@ public partial class MainViewModel : ObservableObject
             new Axis
             {
                 Labeler = value => value.ToString("N0"),
-                MinStep = 1
+                MinStep = 1,
+                SeparatorsPaint = new SolidColorPaint(SKColors.LightGray, 1)
             }
         ];
 
-        PacketRateSeries =
-        [
+        PacketRateSeries = new ObservableCollection<ISeries>
+        {
             new LineSeries<double>
             {
                 Name = "Packets/sec",
-                Values = new ObservableCollection<double>(),
-                Fill = null,
-                GeometrySize = 5
+                Values = _rateValues,
+                Fill = new SolidColorPaint(new SKColor(100, 149, 237, 50)),
+                GeometrySize = 4,
+                Stroke = new SolidColorPaint(SKColors.SteelBlue, 2)
             }
-        ];
+        };
 
+        ProtocolPieSeries = new ObservableCollection<ISeries>();
         UpdatePieChart();
     }
 
     private void OnStatisticsUpdated()
     {
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        try
         {
-            UpdatePieChart();
-            UpdateRateChart();
-        });
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                UpdatePieChart();
+                UpdateRateChart();
+            });
+        }
+        catch
+        {
+        }
     }
 
     private void UpdatePieChart()
     {
-        var colors = new[]
+        try
         {
-            SKColors.Blue,
-            SKColors.Green,
-            SKColors.Orange,
-            SKColors.Purple,
-            SKColors.Red,
-            SKColors.Teal,
-            SKColors.Magenta,
-            SKColors.DarkCyan,
-            SKColors.Goldenrod,
-            SKColors.IndianRed
-        };
+            ProtocolPieSeries.Clear();
 
-        var series = new List<ISeries>();
-        int colorIndex = 0;
-
-        foreach (var stat in ProtocolStats)
-        {
-            series.Add(new PieSeries<int>
+            if (ProtocolStats.Count == 0)
             {
-                Name = stat.ProtocolDisplay,
-                Values = new ObservableCollection<int> { stat.Count },
-                Fill = new SolidColorPaint(colors[colorIndex % colors.Length]),
-                DataLabelsPaint = new SolidColorPaint(SKColors.White),
-                DataLabelsSize = 12
-            });
-            colorIndex++;
-        }
+                return;
+            }
 
-        ProtocolPieSeries = series.ToArray();
+            int colorIndex = 0;
+
+            foreach (var stat in ProtocolStats)
+            {
+                if (stat.Count <= 0) continue;
+
+                var color = _chartColors[colorIndex % _chartColors.Length];
+
+                ProtocolPieSeries.Add(new PieSeries<double>
+                {
+                    Name = $"{stat.ProtocolDisplay} ({stat.Count})",
+                    Values = new ObservableCollection<double> { stat.Count },
+                    Fill = new SolidColorPaint(color),
+                    DataLabelsPaint = new SolidColorPaint(SKColors.Black),
+                    DataLabelsSize = 11
+                });
+
+                colorIndex++;
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Chart error: {ex.Message}";
+        }
     }
 
     private void UpdateRateChart()
     {
-        if (PacketRateHistory.Count == 0) return;
-
-        var values = PacketRateHistory.Select(p => p.PacketsPerSecond).ToList();
-
-        if (PacketRateSeries.Length > 0 && PacketRateSeries[0] is LineSeries<double> lineSeries)
+        try
         {
-            var observableValues = (ObservableCollection<double>)lineSeries.Values!;
-            observableValues.Clear();
-            foreach (var v in values)
+            _rateValues.Clear();
+            foreach (var point in PacketRateHistory)
             {
-                observableValues.Add(v);
+                _rateValues.Add(point.PacketsPerSecond);
             }
+
+            if (YAxisRate.Length > 0)
+            {
+                var maxVal = _rateValues.Count > 0 ? Math.Max(_rateValues.Max(), 10) : 10;
+                YAxisRate[0].MaxLimit = maxVal * 1.1;
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Rate chart error: {ex.Message}";
         }
     }
 
