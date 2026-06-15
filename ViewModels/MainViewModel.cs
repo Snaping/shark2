@@ -60,7 +60,7 @@ public partial class MainViewModel : ObservableObject
     private string[]? _hexLines;
 
     [ObservableProperty]
-    private bool _showStatisticsPanel;
+    private bool _showStatisticsPanel = false;
 
     [ObservableProperty]
     private bool _showStreamsPanel;

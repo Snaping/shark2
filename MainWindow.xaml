@@ -86,13 +86,13 @@
                     <TextBlock Text="Refresh" Margin="4,0"/>
                 </Button>
                 <Separator/>
-                <Button Command="{Binding ToggleStatisticsCommand}" ToolTip="Toggle Statistics Panel">
+                <Button Name="StatisticsButton" Click="StatisticsButton_Click" ToolTip="Toggle Statistics Panel">
                     <TextBlock Text="Statistics" Margin="4,0"/>
                 </Button>
-                <Button Command="{Binding ToggleStreamsCommand}" ToolTip="Toggle TCP Streams Panel">
+                <Button Name="StreamsButton" Click="StreamsButton_Click" ToolTip="Toggle TCP Streams Panel">
                     <TextBlock Text="Streams" Margin="4,0"/>
                 </Button>
-                <Button Command="{Binding ToggleAlertsCommand}" ToolTip="Toggle ARP Alerts Panel">
+                <Button Name="AlertsButton" Click="AlertsButton_Click" ToolTip="Toggle ARP Alerts Panel">
                     <TextBlock Text="Alerts" Margin="4,0"/>
                 </Button>
             </ToolBar>
@@ -106,6 +106,86 @@
                      KeyDown="FilterTextBox_KeyDown"/>
             <Button Content="Apply" Click="ApplyButton_Click" Width="60" Margin="5,0,0,0" DockPanel.Dock="Right"/>
             <Button Content="Clear" Click="ClearButton_Click" Width="60" Margin="5,0" DockPanel.Dock="Right"/>
+        </DockPanel>
+
+        <!-- Status Bar -->
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock Text="Packets: "/>
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock Text="{Binding TotalPackets}" FontWeight="Bold"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock Text="Filtered: "/>
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock Text="{Binding FilteredCount}" FontWeight="Bold" Foreground="Blue"/>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- Statistics Panel (Right side) -->
+        <DockPanel DockPanel.Dock="Right" Width="380" Visibility="{Binding ShowStatisticsPanel, Converter={StaticResource BoolToVisibility}}">
+            <GridSplitter Width="5" HorizontalAlignment="Left" Background="#D0D0D0"/>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <TextBlock Text="Protocol Distribution" FontWeight="Bold"
+                               Background="#E0E0E0" Padding="5"/>
+                    <lvc:PieChart Series="{Binding ProtocolPieSeries}"
+                                  Height="250"
+                                  MinHeight="200"
+                                  LegendPosition="Bottom"
+                                  TooltipPosition="Top"
+                                  InitialRotation="-90"/>
+
+                    <TextBlock Text="Packet Rate (Packets/sec)" FontWeight="Bold"
+                               Background="#E0E0E0" Padding="5"/>
+                    <lvc:CartesianChart Series="{Binding PacketRateSeries}"
+                                         XAxes="{Binding XAxisRate}"
+                                         YAxes="{Binding YAxisRate}"
+                                         Height="220"
+                                         MinHeight="180"
+                                         LegendPosition="Top"
+                                         Margin="0,0,0,5"/>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+
+        <!-- TCP Streams Panel -->
+        <DockPanel DockPanel.Dock="Right" Width="300" Visibility="{Binding ShowStreamsPanel, Converter={StaticResource BoolToVisibility}}">
+            <GridSplitter Width="5" HorizontalAlignment="Left" Background="#D0D0D0"/>
+            <DockPanel>
+                <TextBlock Text="TCP Streams" DockPanel.Dock="Top" FontWeight="Bold"
+                           Background="#E0E0E0" Padding="5"/>
+                <ListBox ItemsSource="{Binding Streams}"
+                         DisplayMemberPath="DisplayName"
+                         SelectedItem="{Binding SelectedStream}"/>
+            </DockPanel>
+        </DockPanel>
+
+        <!-- ARP Alerts Panel -->
+        <DockPanel DockPanel.Dock="Right" Width="300" Visibility="{Binding ShowAlertsPanel, Converter={StaticResource BoolToVisibility}}">
+            <GridSplitter Width="5" HorizontalAlignment="Left" Background="#D0D0D0"/>
+            <DockPanel>
+                <TextBlock Text="ARP Spoofing Alerts" DockPanel.Dock="Top" FontWeight="Bold"
+                           Background="#FFE0E0" Foreground="Red" Padding="5"/>
+                <ListBox ItemsSource="{Binding ArpAlerts}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock Text="{Binding IpDisplay}" FontWeight="Bold" Foreground="Red"/>
+                                <TextBlock Text="{Binding MacsDisplay}" FontSize="10"/>
+                                <TextBlock Text="{Binding Count}" FontSize="10"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
         </DockPanel>
 
         <!-- Main Content -->
@@ -187,85 +267,5 @@
                 </ScrollViewer>
             </Grid>
         </Grid>
-
-        <!-- Status Bar -->
-        <StatusBar DockPanel.Dock="Bottom">
-            <StatusBarItem>
-                <TextBlock Text="{Binding StatusMessage}"/>
-            </StatusBarItem>
-            <Separator/>
-            <StatusBarItem>
-                <TextBlock Text="Packets: "/>
-            </StatusBarItem>
-            <StatusBarItem>
-                <TextBlock Text="{Binding TotalPackets}" FontWeight="Bold"/>
-            </StatusBarItem>
-            <Separator/>
-            <StatusBarItem>
-                <TextBlock Text="Filtered: "/>
-            </StatusBarItem>
-            <StatusBarItem>
-                <TextBlock Text="{Binding FilteredCount}" FontWeight="Bold" Foreground="Blue"/>
-            </StatusBarItem>
-        </StatusBar>
-
-        <!-- Statistics Panel (Right side) -->
-        <DockPanel DockPanel.Dock="Right" Width="380" Visibility="{Binding ShowStatisticsPanel, Converter={StaticResource BoolToVisibility}}">
-            <GridSplitter Width="5" HorizontalAlignment="Left" Background="#D0D0D0"/>
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel>
-                    <TextBlock Text="Protocol Distribution" FontWeight="Bold"
-                               Background="#E0E0E0" Padding="5"/>
-                    <lvc:PieChart Series="{Binding ProtocolPieSeries}"
-                                  Height="250"
-                                  MinHeight="200"
-                                  LegendPosition="Bottom"
-                                  TooltipPosition="Top"
-                                  InitialRotation="-90"/>
-
-                    <TextBlock Text="Packet Rate (Packets/sec)" FontWeight="Bold"
-                               Background="#E0E0E0" Padding="5"/>
-                    <lvc:CartesianChart Series="{Binding PacketRateSeries}"
-                                         XAxes="{Binding XAxisRate}"
-                                         YAxes="{Binding YAxisRate}"
-                                         Height="220"
-                                         MinHeight="180"
-                                         LegendPosition="Top"
-                                         Margin="0,0,0,5"/>
-                </StackPanel>
-            </ScrollViewer>
-        </DockPanel>
-
-        <!-- TCP Streams Panel -->
-        <DockPanel DockPanel.Dock="Right" Width="300" Visibility="{Binding ShowStreamsPanel, Converter={StaticResource BoolToVisibility}}">
-            <GridSplitter Width="5" HorizontalAlignment="Left" Background="#D0D0D0"/>
-            <DockPanel>
-                <TextBlock Text="TCP Streams" DockPanel.Dock="Top" FontWeight="Bold"
-                           Background="#E0E0E0" Padding="5"/>
-                <ListBox ItemsSource="{Binding Streams}"
-                         DisplayMemberPath="DisplayName"
-                         SelectedItem="{Binding SelectedStream}"/>
-            </DockPanel>
-        </DockPanel>
-
-        <!-- ARP Alerts Panel -->
-        <DockPanel DockPanel.Dock="Right" Width="300" Visibility="{Binding ShowAlertsPanel, Converter={StaticResource BoolToVisibility}}">
-            <GridSplitter Width="5" HorizontalAlignment="Left" Background="#D0D0D0"/>
-            <DockPanel>
-                <TextBlock Text="ARP Spoofing Alerts" DockPanel.Dock="Top" FontWeight="Bold"
-                           Background="#FFE0E0" Foreground="Red" Padding="5"/>
-                <ListBox ItemsSource="{Binding ArpAlerts}">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel>
-                                <TextBlock Text="{Binding IpDisplay}" FontWeight="Bold" Foreground="Red"/>
-                                <TextBlock Text="{Binding MacsDisplay}" FontSize="10"/>
-                                <TextBlock Text="{Binding Count}" FontSize="10"/>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </DockPanel>
-        </DockPanel>
     </DockPanel>
 </Window>

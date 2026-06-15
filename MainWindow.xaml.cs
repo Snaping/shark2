@@ -70,6 +70,30 @@ public partial class MainWindow : Window
             vm.ClearFilterCommand.Execute(null);
         }
     }
+
+    private void StatisticsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+        {
+            vm.ShowStatisticsPanel = !vm.ShowStatisticsPanel;
+        }
+    }
+
+    private void StreamsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+        {
+            vm.ShowStreamsPanel = !vm.ShowStreamsPanel;
+        }
+    }
+
+    private void AlertsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+        {
+            vm.ShowAlertsPanel = !vm.ShowAlertsPanel;
+        }
+    }
 }
 
 public class ProtocolToColorConverter : IValueConverter
