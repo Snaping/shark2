@@ -30,6 +30,7 @@ public partial class MainViewModel : ObservableObject
 
     private readonly List<PacketInfo> _allPackets = [];
     private readonly object _packetsLock = new();
+    private CancellationTokenSource? _filterCts;
 
     [ObservableProperty]
     private ObservableCollection<PacketInfo> _filteredPackets = [];
@@ -69,6 +70,9 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private TcpStreamInfo? _selectedStream;
+
+    [ObservableProperty]
+    private bool _isApplyingFilter;
 
     public ObservableCollection<LibPcapLiveDevice> AvailableDevices => _captureService.AvailableDevices;
     public ObservableCollection<ProtocolStat> ProtocolStats => _statisticsService.ProtocolStats;
@@ -118,8 +122,8 @@ public partial class MainViewModel : ObservableObject
         StartCaptureCommand = new RelayCommand(StartCapture, CanStartCapture);
         StopCaptureCommand = new RelayCommand(StopCapture, CanStopCapture);
         ClearPacketsCommand = new RelayCommand(ClearPackets);
-        ApplyFilterCommand = new RelayCommand(ApplyFilter);
-        ClearFilterCommand = new RelayCommand(ClearFilter);
+        ApplyFilterCommand = new RelayCommand(ExecuteApplyFilter);
+        ClearFilterCommand = new RelayCommand(ExecuteClearFilter);
         OpenFileCommand = new RelayCommand(async () => await OpenFileAsync());
         SaveFileCommand = new RelayCommand(async () => await SaveFileAsync(), CanSaveFile);
         RefreshDevicesCommand = new RelayCommand(RefreshDevices);
@@ -129,7 +133,6 @@ public partial class MainViewModel : ObservableObject
 
         _captureService.PacketReceived += OnPacketReceived;
         _captureService.StatusChanged += OnStatusChanged;
-        _filterService.FilterChanged += OnFilterChanged;
         _pcapFileService.StatusChanged += OnStatusChanged;
         _arpDetector.AlertDetected += OnArpAlertDetected;
         _statisticsService.StatisticsUpdated += OnStatisticsUpdated;
@@ -139,7 +142,7 @@ public partial class MainViewModel : ObservableObject
 
     private void InitializeCharts()
     {
-        _xAxisRate =
+        XAxisRate =
         [
             new Axis
             {
@@ -148,7 +151,7 @@ public partial class MainViewModel : ObservableObject
             }
         ];
 
-        _yAxisRate =
+        YAxisRate =
         [
             new Axis
             {
@@ -157,7 +160,7 @@ public partial class MainViewModel : ObservableObject
             }
         ];
 
-        _packetRateSeries =
+        PacketRateSeries =
         [
             new LineSeries<double>
             {
@@ -173,7 +176,7 @@ public partial class MainViewModel : ObservableObject
 
     private void OnStatisticsUpdated()
     {
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
             UpdatePieChart();
             UpdateRateChart();
@@ -277,19 +280,74 @@ public partial class MainViewModel : ObservableObject
         SaveFileCommand.NotifyCanExecuteChanged();
     }
 
-    private void ApplyFilter()
+    private void ExecuteApplyFilter()
     {
-        _filterService.FilterExpression = FilterExpression;
-        _filterService.FilterEnabled = !string.IsNullOrWhiteSpace(FilterExpression);
-        UpdateFilteredPackets();
+        if (IsApplyingFilter) return;
+        _ = ApplyFilterAsync(FilterExpression);
     }
 
-    private void ClearFilter()
+    private void ExecuteClearFilter()
     {
         FilterExpression = string.Empty;
-        _filterService.FilterExpression = string.Empty;
-        _filterService.FilterEnabled = false;
-        UpdateFilteredPackets();
+        if (IsApplyingFilter) return;
+        _ = ApplyFilterAsync(string.Empty);
+    }
+
+    private async Task ApplyFilterAsync(string expression)
+    {
+        _filterCts?.Cancel();
+        _filterCts = new CancellationTokenSource();
+        var token = _filterCts.Token;
+
+        IsApplyingFilter = true;
+        StatusMessage = "Applying filter...";
+
+        try
+        {
+            _filterService.FilterEnabled = !string.IsNullOrWhiteSpace(expression);
+            _filterService.FilterExpression = expression;
+
+            List<PacketInfo> snapshot;
+            lock (_packetsLock)
+            {
+                snapshot = new List<PacketInfo>(_allPackets);
+            }
+
+            var matched = await Task.Run(() =>
+            {
+                var result = new List<PacketInfo>();
+                foreach (var packet in snapshot)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (_filterService.Matches(packet))
+                    {
+                        result.Add(packet);
+                    }
+                }
+                return result;
+            }, token);
+
+            token.ThrowIfCancellationRequested();
+
+            FilteredPackets.Clear();
+            foreach (var packet in matched)
+            {
+                FilteredPackets.Add(packet);
+            }
+            FilteredCount = matched.Count;
+            StatusMessage = $"Filter applied: {FilteredCount}/{TotalPackets} packets shown";
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Filter error: {ex.Message}";
+        }
+        finally
+        {
+            IsApplyingFilter = false;
+        }
     }
 
     private async Task OpenFileAsync()
@@ -307,6 +365,7 @@ public partial class MainViewModel : ObservableObject
 
             try
             {
+                StatusMessage = $"Loading {dialog.FileName}...";
                 var packets = await _pcapFileService.ReadFileAsync(dialog.FileName, CancellationToken.None);
 
                 foreach (var packet in packets)
@@ -318,7 +377,7 @@ public partial class MainViewModel : ObservableObject
                 }
 
                 TotalPackets = packets.Count;
-                UpdateFilteredPackets();
+                await ApplyFilterAsync(FilterExpression);
                 StatusMessage = $"Loaded {packets.Count} packets from {dialog.FileName}";
                 SaveFileCommand.NotifyCanExecuteChanged();
             }
@@ -347,6 +406,7 @@ public partial class MainViewModel : ObservableObject
                 {
                     packets = new List<PacketInfo>(_allPackets);
                 }
+                StatusMessage = "Saving...";
                 await _pcapFileService.SaveToFileAsync(dialog.FileName, packets, CancellationToken.None);
             }
             catch (Exception ex)
@@ -363,7 +423,7 @@ public partial class MainViewModel : ObservableObject
 
     private void OnPacketReceived(PacketInfo packet)
     {
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
             lock (_packetsLock)
             {
@@ -388,40 +448,18 @@ public partial class MainViewModel : ObservableObject
 
     private void OnStatusChanged(string message)
     {
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
             StatusMessage = message;
         });
     }
 
-    private void OnFilterChanged()
-    {
-        UpdateFilteredPackets();
-    }
-
     private void OnArpAlertDetected(ArpSpoofAlert alert)
     {
-        StatusMessage = $"ALERT: {alert.Message}";
-    }
-
-    private void UpdateFilteredPackets()
-    {
-        FilteredPackets.Clear();
-        int count = 0;
-
-        lock (_packetsLock)
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
-            foreach (var packet in _allPackets)
-            {
-                if (_filterService.Matches(packet))
-                {
-                    FilteredPackets.Add(packet);
-                    count++;
-                }
-            }
-        }
-
-        FilteredCount = count;
+            StatusMessage = $"ALERT: {alert.Message}";
+        });
     }
 
     partial void OnSelectedPacketChanged(PacketInfo? value)

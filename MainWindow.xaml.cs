@@ -41,10 +41,33 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.Enter)
         {
-            if (DataContext is MainViewModel vm)
-            {
-                vm.ApplyFilterCommand.Execute(null);
-            }
+            ApplyFilterFromTextBox();
+        }
+    }
+
+    private void ApplyFilterFromTextBox()
+    {
+        if (DataContext is MainViewModel vm && FilterTextBox != null)
+        {
+            vm.FilterExpression = FilterTextBox.Text;
+            vm.ApplyFilterCommand.Execute(null);
+        }
+    }
+
+    private void ApplyButton_Click(object sender, RoutedEventArgs e)
+    {
+        ApplyFilterFromTextBox();
+    }
+
+    private void ClearButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (FilterTextBox != null)
+        {
+            FilterTextBox.Text = string.Empty;
+        }
+        if (DataContext is MainViewModel vm)
+        {
+            vm.ClearFilterCommand.Execute(null);
         }
     }
 }

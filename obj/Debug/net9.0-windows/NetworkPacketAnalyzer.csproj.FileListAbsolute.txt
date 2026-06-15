@@ -45,3 +45,4 @@ D:\WorkSpace\Agent\MultiSoloSpace\615\shark2\obj\Debug\net9.0-windows\refint\Net
 D:\WorkSpace\Agent\MultiSoloSpace\615\shark2\obj\Debug\net9.0-windows\NetworkPacketAnalyzer.pdb
 D:\WorkSpace\Agent\MultiSoloSpace\615\shark2\obj\Debug\net9.0-windows\NetworkPacketAnalyzer.genruntimeconfig.cache
 D:\WorkSpace\Agent\MultiSoloSpace\615\shark2\obj\Debug\net9.0-windows\ref\NetworkPacketAnalyzer.dll
+D:\WorkSpace\Agent\MultiSoloSpace\615\shark2\obj\Debug\net9.0-windows\NetworkPacketAnalyzer.sourcelink.json

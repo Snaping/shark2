@@ -101,11 +101,11 @@
         <!-- Filter Bar -->
         <DockPanel DockPanel.Dock="Top" Margin="5,5,5,0">
             <TextBlock Text="Filter: " VerticalAlignment="Center" FontWeight="Bold"/>
-            <TextBox Name="FilterTextBox" Text="{Binding FilterExpression, UpdateSourceTrigger=PropertyChanged}"
+            <TextBox Name="FilterTextBox"
                      ToolTip="e.g., ip.src==192.168.1.1, protocol==TCP, tcp.port==80"
                      KeyDown="FilterTextBox_KeyDown"/>
-            <Button Content="Apply" Command="{Binding ApplyFilterCommand}" Width="60" Margin="5,0,0,0" DockPanel.Dock="Right"/>
-            <Button Content="Clear" Command="{Binding ClearFilterCommand}" Width="60" Margin="5,0" DockPanel.Dock="Right"/>
+            <Button Content="Apply" Click="ApplyButton_Click" Width="60" Margin="5,0,0,0" DockPanel.Dock="Right"/>
+            <Button Content="Clear" Click="ClearButton_Click" Width="60" Margin="5,0" DockPanel.Dock="Right"/>
         </DockPanel>
 
         <!-- Main Content -->

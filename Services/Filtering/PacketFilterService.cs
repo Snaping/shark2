@@ -7,7 +7,6 @@ public interface IPacketFilterService
 {
     string FilterExpression { get; set; }
     bool FilterEnabled { get; set; }
-    event Action? FilterChanged;
 
     bool Matches(PacketInfo packet);
     void UpdateFilter(string expression);
@@ -26,21 +25,14 @@ public class PacketFilterService : IPacketFilterService
         {
             _filterExpression = value;
             _compiledFilter = CompileFilter(value);
-            FilterChanged?.Invoke();
         }
     }
 
     public bool FilterEnabled
     {
         get => _filterEnabled;
-        set
-        {
-            _filterEnabled = value;
-            FilterChanged?.Invoke();
-        }
+        set => _filterEnabled = value;
     }
-
-    public event Action? FilterChanged;
 
     public bool Matches(PacketInfo packet)
     {
